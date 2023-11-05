@@ -1,0 +1,74 @@
+package myrpc
+
+type MyService interface {
+    Add(a, b int) int
+}
+package main
+
+import (
+    "fmt"
+    "net"
+    "net/rpc"
+    "myrpc"
+)
+
+type MyServiceImplementation struct{}
+
+func (s *MyServiceImplementation) Add(args myrpc.Args, reply *int) error {
+    *reply = args.A + args.B
+    return nil
+}
+
+func main() {
+    service := new(MyServiceImplementation)
+    rpc.Register(service)
+
+    listener, err := net.Listen("tcp", ":1234")
+    if err != nil {
+        fmt.Println("Error starting server:", err)
+        return
+    }
+
+    fmt.Println("Server listening on :1234...")
+    for {
+        conn, err := listener.Accept()
+        if err != nil {
+            fmt.Println("Error accepting connection:", err)
+            continue
+        }
+        go rpc.ServeConn(conn)
+    }
+}
+
+package main
+
+import (
+    "fmt"
+    "net/rpc"
+    "myrpc"
+)
+
+func main() {
+    client, err := rpc.Dial("tcp", "localhost:1234")
+    if err != nil {
+        fmt.Println("Error connecting to server:", err)
+        return
+    }
+    defer client.Close()
+
+    args := myrpc.Args{A: 10, B: 5}
+    var result int
+
+    err = client.Call("MyService.Add", args, &result)
+    if err != nil {
+        fmt.Println("Error calling remote method:", err)
+        return
+    }
+
+    fmt.Printf("Result: %d\n", result)
+}
+package myrpc
+
+type Args struct {
+    A, B int
+}
